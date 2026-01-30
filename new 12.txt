@@ -1,0 +1,59 @@
+RAM 32gb
+DIsk 500gb
+core 8
+OS Almalinux 8
+
+Hello,
+
+Rdns has been removed for the given IPs.
+
+telnet localhost 25
+
+EHLO mail.yourdomain.com
+MAIL FROM:<test@yourdomain.com>
+RCPT TO:<your-email@gmail.com>
+DATA
+Subject: PMTA test 1
+
+
+
+This is a raw test email from PMTA.
+.
+QUIT
+
+EHLO mail.yourdomain.com
+AUTH LOGIN
+YWRtaW4=
+cGFzc3dvcmQ=
+MAIL FROM:<test@yourdomain.com>
+RCPT TO:<pranavpatel.mainvps@gmail.com>
+DATA
+From: Test Sender <test@creditstap.com>
+To: Test <pranavpatel.mainvps@gmail.com>
+Subject: DKIM Final Test
+Date: Wed Jan 21 08:50:40 UTC 2026
+
+This is a DKIM signed test mail.
+.
+QUIT
+
+
+APIMyDNSApiKey2026 QlVUb1dVSWtJbERPbHdm
+MyDNSApiKey2026
+
+
+
+v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5w9tqFsSathNlIgHv9LoIqh6uJz0of+YrgXL55UWexE55X01DO030eBB46fibW1cJvN86BiC+nKDcLENdQ++UFu9B5jb26VoHZxppevuPwSRrll37AL/BTK2Oz8iPAWGqVzArzyAguk1BTeozlzl7t+KfLUalSN0BvTC+5yyjSxUZ6nZsuf9C/zfhlout2g/D8HqIVEFyfdOaBoBEoZBjUI4FgWXVIdRoTpFr1SCFrqmSzpX71U1VR/g1gYdrfEmfo/dIL7QEsk1vFYxptjUSHXqC9/vcYluTUcl20AkcKAUmHvdk6mVNjDnoHnA38uHRAd3/wZUaM9uECXsa1VebwIDAQAB
+
+# List zones
+curl -H "X-API-Key:MyDNSApiKey2026" http://192.119.169.12:8081/api/v1/servers/localhost/zones
+
+# Inspect a zone
+curl -H "X-API-Key:MyDNSApiKey2026" http://192.119.169.12:8081/api/v1/servers/localhost/zones/domain.com.
+
+# Show records
+	curl -H "X-API-Key:MyDNSApiKey2026" http://192.119.169.12:8081/api/v1/servers/localhost/zones/domain.com. | jq '.rrsets'
+
+
+
+CID627 103.27.234.182  

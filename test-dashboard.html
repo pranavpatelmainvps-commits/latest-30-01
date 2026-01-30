@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerMTA Cloud Console</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Mailgun/ESP Professional Palette */
+            --bg-body: #f3f4f6;
+            --bg-sidebar: #1e293b;
+            --bg-card: #ffffff;
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --text-sidebar: #94a3b8;
+            --primary: #4f46e5;
+            /* Indigo */
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: #e5e7eb;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #0f172a;
+        }
+
+        .brand {
+            padding: 1.5rem;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.025em;
+        }
+
+        .brand svg {
+            color: var(--primary);
+        }
+
+        .nav-links {
+            list-style: none;
+            padding: 1rem 0.75rem;
+            flex: 1;
+        }
+
+        .nav-item {
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-btn {
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: var(--text-sidebar);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .nav-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .user-profile {
+            padding: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .content-area {
+            padding: 2rem;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* --- Cards & Forms --- */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .card-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .grid-3 {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: #111827;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* --- Status Badge --- */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.625rem 1.25rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border-color: var(--border);
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        .btn-danger {
+            background-color: white;
+            border-color: #fca5a5;
+            color: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background-color: #fef2f2;
+        }
+
+        /* --- Dynamic Views --- */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- Mapping Table --- */
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .mapping-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .mapping-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* --- Terminal --- */
+        .terminal {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            height: 400px;
+            overflow-y: auto;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border: 1px solid #333;
+        }
+
+        .terminal-log {
+            margin-bottom: 4px;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-success {
+            color: #4ade80;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        .log-warn {
+            color: #facc15;
+        }
+
+        /* --- DNS Cards --- */
+        .dns-record-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .record-val {
+            font-family: 'JetBrains Mono', monospace;
+            background: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            word-break: break-all;
+            color: #334155;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            PMTA Cloud
+        </div>
+
+        <ul class="nav-links">
+            <li class="nav-item">
+                <button class="nav-btn active" onclick="switchView('deploy')">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                    New Deployment
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-btn" onclick="switchView('dns')">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <path
+                            d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    DNS Manager
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-btn" onclick="switchView('logs')">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M4 17l6-6-6-6M12 19h8" />
+                    </svg>
+                    Live Console
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-btn" onclick="switchView('inbound'); loadInboundEmails();">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Inbound Mail
+                </button>
+            </li>
+        </ul>
+
+        <div class="user-profile">
+            <div class="avatar">A</div>
+            <div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: white;">Admin</div>
+                <div style="font-size: 0.75rem;">Premium Plan</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="main-content">
+        <header class="top-bar">
+            <h1 class="page-title" id="pageTitle">Server Deployment</h1>
+            <div class="badge badge-success">System Operational</div>
+        </header>
+
+        <div class="content-area">
+
+            <!-- VIEW: DEPLOYMENT -->
+            <section id="view-deploy" class="view-section active">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Server Connection</h3>
+                    </div>
+                    <div class="form-grid grid-3">
+                        <div class="form-group">
+                            <label>Host IP Address</label>
+                            <input type="text" id="server_ip" class="form-input" placeholder="e.g. 192.168.1.1">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Username</label>
+                            <input type="text" id="ssh_user" class="form-input" value="root">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Password</label>
+                            <input type="password" id="ssh_pass" class="form-input" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="fresh_install">
+                            <span style="font-size: 0.9rem;">Perform Fresh Installation (RPMs + Dependencies)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Standard Mailbox Credentials</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary);">These standard mailboxes have been
+                            created on your Inbound Server.</p>
+                    </div>
+                    <table class="mapping-table">
+                        <thead>
+                            <tr>
+                                <th>Mailbox</th>
+                                <th>Username</th>
+                                <th>Password</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Postmaster</td>
+                                <td><code>postmaster@&lt;domain&gt;</code></td>
+                                <td><code>password</code></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>Bounce</td>
+                                <td><code>bounce@&lt;domain&gt;</code></td>
+                                <td><code>password</code></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>DMARC</td>
+                                <td><code>dmarc@&lt;domain&gt;</code></td>
+                                <td><code>password</code></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>Catch-All</td>
+                                <td><code>catchall@&lt;domain&gt;</code></td>
+                                <td><code>password</code></td>
+                                <td><span class="badge badge-success">Active</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Network & Domains</h3>
+                        <button class="btn btn-secondary" onclick="addMapping()">+ Add Node</button>
+                    </div>
+
+                    <table class="mapping-table">
+                        <thead>
+                            <tr>
+                                <th>Tracking Domain</th>
+                                <th>Assigned IP</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mappingBody">
+                            <!-- Rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="text-align: right;">
+                    <button class="btn btn-primary" onclick="startInstall()"
+                        style="padding: 0.75rem 2rem; font-size: 1rem;">
+                        Initialize Deployment ➜
+                    </button>
+                </div>
+            </section>
+
+            <!-- VIEW: DNS MANAGER -->
+            <section id="view-dns" class="view-section">
+                <div class="card">
+                    <div class="card-header" style="display:flex; justify-content:space-between;">
+                        <h3>DNS Zone Inspector</h3>
+                        <div style="display:flex; gap: 10px;">
+                            <input type="text" id="dnsSearchDomain" class="form-input" placeholder="Enter Domain..."
+                                style="width: 250px;">
+                            <button class="btn btn-primary" onclick="searchDNS()">Search</button>
+                        </div>
+                    </div>
+
+                    <div id="dnsContent" style="display:none;">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 2rem;">
+                            <div>
+                                <h1 style="font-size: 1.8rem; font-weight: 700;">
+                                    <span id="dnsDomainTitle"></span>
+                                </h1>
+                                <div style="color: var(--text-secondary); margin-top: 0.5rem; font-family: monospace;"
+                                    id="nsList">
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="copyNS()">Copy Nameservers</button>
+                        </div>
+
+                        <div class="card"
+                            style="border: 1px solid #e2e8f0; border-left: 4px solid var(--primary); background: #f8fafc;">
+                            <div style="font-size: 0.9rem; font-weight: 600; color: #334151; margin-bottom: 1rem;">
+                                Active Zone Records</div>
+                            <table class="mapping-table">
+                                <thead>
+                                    <tr>
+                                        <th>Hostname</th>
+                                        <th>Type</th>
+                                        <th>Content</th>
+                                        <th>TTL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dnsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="dnsLoading"
+                        style="text-align:center; padding: 3rem; color: var(--text-secondary); display:none;">
+                        Searching PowerDNS API...
+                    </div>
+                    <div id="dnsError" style="text-align:center; padding: 2rem; color: var(--danger); display:none;">
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: LOGS -->
+            <section id="view-logs" class="view-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Live Console Output</h3>
+                    </div>
+                    <div class="terminal" id="terminalOutput">
+                        <div class="terminal-log log-info">System Ready. Waiting for commands...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: INBOUND -->
+            <section id="view-inbound" class="view-section">
+                <div class="card">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>Received Inbound Emails</h3>
+                        <button class="btn btn-secondary" onclick="loadInboundEmails()">Refresh ↻</button>
+                    </div>
+                    <table class="mapping-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Sender</th>
+                                <th>Recipient</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inboundTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Logic -->
+    <script>
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            addMapping(); // Add first row by default
+        });
+
+        // --- Navigation ---
+        function switchView(viewName) {
+            // Update Sidebar
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // Switch Section
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+
+            // Update Header
+            const titles = {
+                'deploy': 'Server Deployment',
+                'dns': 'DNS Management',
+                'logs': 'System Console',
+                'inbound': 'Inbound Mail Monitor'
+            };
+            document.getElementById('pageTitle').innerText = titles[viewName];
+        }
+
+        // --- Deployment Logic ---
+        function addMapping() {
+            const tr = document.createElement("tr");
+            tr.className = "mapping-row";
+            tr.innerHTML = `
+                <td><input type="text" class="form-input domain-input" placeholder="example.com"></td>
+                <td><input type="text" class="form-input ip-input" placeholder="1.2.3.4"></td>
+                <td><button class="btn btn-danger" style="padding: 0.5rem;" onclick="removeRow(this)">✕</button></td>
+            `;
+            document.getElementById("mappingBody").appendChild(tr);
+        }
+
+        function removeRow(btn) {
+            const rows = document.querySelectorAll(".mapping-row");
+            if (rows.length > 1) {
+                btn.closest("tr").remove();
+            } else {
+                // Clear inputs if only one row matches
+                const inputs = btn.closest("tr").querySelectorAll("input");
+                inputs.forEach(input => input.value = "");
+            }
+        }
+
+        function log(msg, type = "info") {
+            const term = document.getElementById("terminalOutput");
+            const div = document.createElement("div");
+            div.className = `terminal-log log-${type}`;
+            div.innerText = msg;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        async function startInstall() {
+            switchView('logs'); // Auto switch to logs
+            document.getElementById("terminalOutput").innerHTML = ""; // Clear logs
+
+            const server_ip = document.getElementById("server_ip").value;
+            const ssh_user = document.getElementById("ssh_user").value;
+            const ssh_pass = document.getElementById("ssh_pass").value;
+            const fresh_install = document.getElementById("fresh_install").checked;
+
+            const rows = document.querySelectorAll(".mapping-row");
+            let mappings = [];
+
+            rows.forEach(row => {
+                const domain = row.querySelector(".domain-input").value.trim();
+                const ip = row.querySelector(".ip-input").value.trim();
+                if (domain && ip) {
+                    mappings.push({ domain, ip });
+                }
+            });
+
+            if (!server_ip || !ssh_user || !ssh_pass || mappings.length === 0) {
+                log(">>> [ERROR] Missing required fields.", "error");
+                return;
+            }
+
+            log(`>>> [INIT] Starting Deployment for ${server_ip}...`, "info");
+
+            try {
+                const response = await fetch("/install", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        server_ip, ssh_user, ssh_pass, mappings, fresh_install
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === "success" || data.status === "started") {
+                    log(">>> [SUCCESS] Job queued. Polling logs...", "success");
+                    startLogStream();
+                } else {
+                    log(">>> [FAIL] API returned error: " + JSON.stringify(data), "error");
+                }
+
+            } catch (err) {
+                log(">>> [CRITICAL] Network Connection Error: " + err, "error");
+            }
+        }
+
+        let logInterval;
+        async function startLogStream() {
+            if (logInterval) clearInterval(logInterval);
+            let lastLogLen = 0;
+
+            logInterval = setInterval(async () => {
+                try {
+                    const response = await fetch("/install_logs");
+                    const data = await response.json();
+
+                    if (data.logs && data.logs.length > lastLogLen) {
+                        const newPart = data.logs.substring(lastLogLen);
+                        // Simple formatted output
+                        const lines = newPart.split('\\n');
+                        lines.forEach(l => {
+                            if (l.trim()) {
+                                let type = "info";
+                                if (l.includes("ERROR") || l.includes("FAILED")) type = "error";
+                                if (l.includes("SUCCESS") || l.includes("Found") || l.includes("Verified")) type = "success";
+                                if (l.includes("WARNING")) type = "warn";
+                                log(l, type);
+                            }
+                        });
+                        lastLogLen = data.logs.length;
+                    }
+
+                    if (data.logs.includes("Installation Completed")) {
+                        clearInterval(logInterval);
+                        log(">>> PROCESS COMPLETED", "success");
+                    }
+                } catch (e) {
+                    console.error("Poll error", e);
+                }
+            }, 2000);
+        }
+
+        // --- DNS Manager ---
+        function searchDNS() {
+            const domain = document.getElementById("dnsSearchDomain").value.trim();
+            if (!domain) return;
+            loadDNSRecords(domain);
+        }
+
+        async function loadDNSRecords(domain) {
+            document.getElementById("dnsContent").style.display = "none";
+            document.getElementById("dnsLoading").style.display = "block";
+            document.getElementById("dnsError").style.display = "none";
+
+            try {
+                const res = await fetch(`/dns/records?domain=${domain}`);
+                const data = await res.json();
+
+                document.getElementById("dnsLoading").style.display = "none";
+
+                if (res.status !== 200) {
+                    document.getElementById("dnsError").innerText = data.error || "Lookup Failed";
+                    document.getElementById("dnsError").style.display = "block";
+                    return;
+                }
+
+                document.getElementById("dnsContent").style.display = "block";
+                document.getElementById("dnsDomainTitle").innerText = domain;
+
+                // NS List
+                if (data.nameservers) {
+                    document.getElementById("nsList").innerHTML = data.nameservers.join(" &bull; ");
+                }
+
+                // Table
+                const tbody = document.getElementById("dnsTableBody");
+                tbody.innerHTML = "";
+                data.records.forEach(rec => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-family:monospace; color:var(--primary); font-weight:600;">${rec.name.replace(domain, '@')}</td>
+                        <td><span class="badge badge-success">${rec.type}</span></td>
+                        <td><div class="record-val">${rec.content}</div></td>
+                        <td>${rec.ttl}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch (e) {
+                document.getElementById("dnsLoading").style.display = "none";
+                document.getElementById("dnsError").innerText = "Network Error";
+                document.getElementById("dnsError").style.display = "block";
+            }
+        }
+
+        function copyNS() {
+            const text = document.getElementById("nsList").innerText.replace(/ • /g, '\n');
+            navigator.clipboard.writeText(text);
+            alert("Nameservers copied.");
+        }
+
+        // --- Inbound Mail ---
+        async function loadInboundEmails() {
+            const tbody = document.getElementById("inboundTableBody");
+            try {
+                const res = await fetch("/api/inbound/emails");
+                const emails = await res.json();
+
+                tbody.innerHTML = "";
+
+                if (emails.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; padding:1rem;'>No emails received yet.</td></tr>";
+                    return;
+                }
+
+                // In reverse chronological order (newest first)
+                emails.slice().reverse().forEach(email => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td style="font-size:0.85rem; color:#6b7280;">${new Date().toLocaleTimeString()}</td>
+                        <td style="font-weight:500;">${email.sender || 'Unknown'}</td>
+                        <td>${email.recipient || 'Unknown'}</td>
+                        <td style="font-weight:600; color:var(--primary);">${email.subject || 'No Subject'}</td>
+                        <td><span class="badge badge-success">Processed</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center; color:red;'>Error loading emails</td></tr>";
+            }
+        }
+
+    </script>
+</body>
+
+</html>

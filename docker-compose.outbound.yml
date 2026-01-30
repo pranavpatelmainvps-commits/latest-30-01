@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  pmta-dashboard:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - /etc/pmta:/etc/pmta
+      - /var/log/pmta:/var/log/pmta
+      - /var/spool/pmta:/var/spool/pmta
+    environment:
+      - FLASK_ENV=development
+      # No longer needs database for Roundcube, as that is on Inbound Server

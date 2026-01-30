@@ -1,0 +1,5 @@
+admin:{PLAIN}password:5000:5000::/var/mail/vhosts/admin::
+bounce:{PLAIN}password:5000:5000::/var/mail/vhosts/admin::
+postmaster:{PLAIN}password:5000:5000::/var/mail/vhosts/admin::
+catchall:{PLAIN}password:5000:5000::/var/mail/vhosts/admin::
+dmarc:{PLAIN}password:5000:5000::/var/mail/vhosts/admin::

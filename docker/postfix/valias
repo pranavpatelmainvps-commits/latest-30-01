@@ -1,0 +1,10 @@
+# Route specific users to their maildirs
+/^admin@(.*)/   admin/
+/^postmaster@(.*)/   admin/
+/^hostmaster@(.*)/   admin/
+
+# Catchall: everything else goes to the same place or specific users
+# For standard catchall setup:
+# /^.*@(.*)/   catchall/
+# For minimal dev setup, route everything to admin
+/^.*@(.*)/   admin/

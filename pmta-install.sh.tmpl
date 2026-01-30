@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+set -e
+
+DOMAIN="{{DOMAIN}}"
+SERVER_IP="{{SERVER_IP}}"
+SMTP_USER="{{SMTP_USER}}"
+SMTP_PASS="{{SMTP_PASS}}"
+
+echo "Running PMTA installer for $DOMAIN ($SERVER_IP)"
+
+# ---------------- OS packages ----------------
+if command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y curl wget openssl dnsutils netcat ca-certificates
+elif command -v yum >/dev/null 2>&1; then
+  yum install -y curl wget openssl bind-utils nmap-ncat ca-certificates initscripts
+else
+  echo "Unsupported OS"
+  exit 1
+fi
+
+# ---------------- Hostname enforcement ----------------
+CURRENT_HOSTNAME="$(hostnamectl --static)"
+
+if [[ "$CURRENT_HOSTNAME" != "$DOMAIN" ]]; then
+  echo "Setting hostname to $DOMAIN"
+  hostnamectl set-hostname "$DOMAIN"
+fi
+
+if ! grep -q "^$SERVER_IP\s\+$DOMAIN" /etc/hosts; then
+  echo "Adding /etc/hosts entry"
+  echo "$SERVER_IP $DOMAIN" >> /etc/hosts
+fi
+# ---------------- Preflight checks ----------------
+for f in /tmp/PowerMTA.rpm /tmp/pmtad /tmp/pmtahttpd /tmp/license; do
+  if [[ ! -f "$f" ]]; then
+    echo "ERROR: Required file missing: $f"
+    exit 1
+  fi
+done
+
+# ---------------- Perl dependency (REQUIRED for PMTA) ----------------
+if ! command -v perl >/dev/null 2>&1; then
+  echo "Installing Perl dependencies for PowerMTA"
+  yum install -y perl
+fi
+
+# ---------------- Ensure PowerMTA is installed ----------------
+if ! rpm -q PowerMTA >/dev/null 2>&1; then
+  echo "PowerMTA not installed, installing from local RPM"
+
+  if [[ ! -f "/tmp/PowerMTA.rpm" ]]; then
+    echo "ERROR: /tmp/PowerMTA.rpm not found"
+    exit 1
+  fi
+
+  rpm -Uvh --nosignature --nodigest /tmp/PowerMTA.rpm
+else
+  echo "PowerMTA already installed"
+fi
+
+
+# ---------------- PMTA License ----------------
+if [[ -f "/tmp/license" ]]; then
+  echo "Installing PMTA license"
+  mkdir -p /etc/pmta
+  cp /tmp/license /etc/pmta/license
+  chmod 600 /etc/pmta/license
+else
+  echo "ERROR: PMTA license file missing"
+  exit 1
+fi
+
+# ---------------- Stop PMTA before binary replacement ----------------
+echo "Stopping PMTA service (if running)"
+systemctl stop pmta || true
+
+# ---------------- Replace PMTA core binaries ----------------
+for BIN in pmtad pmtahttpd; do
+  SRC="/tmp/$BIN"
+  DST="/usr/sbin/$BIN"
+
+  if [[ ! -f "$SRC" ]]; then
+    echo "ERROR: $SRC not found"
+    exit 1
+  fi
+
+  echo "Removing existing $DST (if any)"
+  rm -f "$DST"
+
+  echo "Copying fresh $BIN to /usr/sbin"
+  cp "$SRC" "$DST"
+
+  chown root:root "$DST"
+  chmod 755 "$DST"
+
+  # Safety check
+  if [[ ! -x "$DST" ]]; then
+    echo "ERROR: $DST is not executable after copy"
+    exit 1
+  fi
+done
+
+# ---------------- Main PMTA config ----------------
+echo "Preparing PMTA configuration"
+
+# Step 1: Copy default config if main config does not exist
+if [[ ! -f /etc/pmta/config ]]; then
+    cp /etc/pmta/config-defaults /etc/pmta/config
+fi
+
+# Step 2: Append your required working values safely
+ensure_line () {
+  grep -q "^$1" /etc/pmta/config || echo "$1" >> /etc/pmta/config
+}
+
+ensure_line "host-name $DOMAIN"
+
+# Add relay permissions (only if not present)
+grep -q "<source 127.0.0.1>" /etc/pmta/config || cat >> /etc/pmta/config <<EOF
+
+<source 127.0.0.1>
+    always-allow-relaying yes
+</source>
+
+<source ::1>
+    always-allow-relaying yes
+</source>
+EOF
+
+chown pmta:root /etc/pmta/config
+chmod 640 /etc/pmta/config
+
+# ---------------- Ensure required directives ----------------
+ensure_line () {
+  grep -q "^$1" /etc/pmta/config || echo "$1" >> /etc/pmta/config
+}
+
+ensure_line "host-name $DOMAIN"
+
+# ---------------- Filesystem ----------------
+mkdir -p /var/spool/pmta
+chown -R pmta:pmta /var/spool/pmta
+chmod 700 /var/spool/pmta
+
+mkdir -p /var/log/pmta
+chown -R pmta:pmta /var/log/pmta
+chmod 755 /var/log/pmta
+
+# ---------------- Validate config (PMTA 5.x) ----------------
+echo "Validating PMTA configuration"
+/usr/sbin/pmtad --debug --dontSend &
+PMTA_PID=$!
+sleep 5
+
+if ! ps -p "$PMTA_PID" >/dev/null 2>&1; then
+  echo "ERROR: PMTA validation failed"
+  exit 1
+fi
+
+echo "PMTA validation successful"
+kill "$PMTA_PID"
+wait "$PMTA_PID" 2>/dev/null || true
+
+
+# ---------------- SMTP auth ----------------
+echo "$SMTP_USER:$SMTP_PASS" > /etc/pmta/smtp_users.txt
+chmod 600 /etc/pmta/smtp_users.txt
+
+# ---------------- Start / Restart PMTA ----------------
+echo "Reloading systemd and starting PMTA..."
+systemctl daemon-reexec
+systemctl daemon-reload
+
+systemctl enable pmta
+
+systemctl restart pmta || {
+  echo "PMTA failed to start. Showing last 50 log lines:"
+  journalctl -u pmta --no-pager -n 50
+  exit 1
+}
+
+sleep 2
+systemctl status pmta --no-pager
+
+# ---------------- Firewall Configuration ----------------
+echo "Configuring Firewall..."
+if command -v firewall-cmd >/dev/null 2>&1; then
+  if systemctl is-active --quiet firewalld; then
+      echo "Opening ports 22, 25, 8080, 2525 in firewalld"
+      firewall-cmd --permanent --add-port=22/tcp
+      firewall-cmd --permanent --add-port=25/tcp
+      firewall-cmd --permanent --add-port=8080/tcp
+      firewall-cmd --permanent --add-port=2525/tcp
+      firewall-cmd --reload
+  else
+      echo "Firewalld is installed but not running. Starting it..."
+      systemctl start firewalld
+      firewall-cmd --permanent --add-port=22/tcp
+      firewall-cmd --permanent --add-port=25/tcp
+      firewall-cmd --permanent --add-port=8080/tcp
+      firewall-cmd --permanent --add-port=2525/tcp
+      firewall-cmd --reload
+  fi
+else
+  echo "Firewalld not found. Flushing iptables as fallback (warning: insecure)"
+  iptables -F
+fi
+
+# ---------------- Inbound Stack (Dovecot + Roundcube) ----------------
+echo "Installing Inbound Stack (Dovecot, Apache, MariaDB, Roundcube)..."
+
+# 1. Install Packages
+if command -v yum >/dev/null 2>&1; then
+    # EPEL for some php deps
+    yum install -y epel-release || true
+    # Remi repo for newer PHP if needed, but standard 7.2+ on EL8 is fine for Roundcube
+    yum install -y httpd mariadb-server dovecot php php-mysqlnd php-mbstring php-xml php-json php-intl php-gd zip unzip
+fi
+
+# 2. Configure Dovecot (IMAP/POP3)
+echo "Configuring Dovecot..."
+# Backup original
+[ ! -f /etc/dovecot/dovecot.conf.bak ] && cp /etc/dovecot/dovecot.conf /etc/dovecot/dovecot.conf.bak
+
+# Minimal Dovecot Config for Virtual Users (System Users mapped to vmail or direct)
+# Simplest for PMTA/ISP integration: Use System Users or a static VMAIL user.
+# Let's use the 'vmail' user pattern for security.
+groupadd -g 5000 vmail || true
+useradd -g vmail -u 5000 vmail -d /var/mail/vhosts -m || true
+
+cat > /etc/dovecot/local.conf <<EOF
+protocols = imap pop3 lmtp
+listen = *
+mail_location = maildir:/var/mail/vhosts/%d/%n
+# Allow plaintext auth (needed for simple setup)
+disable_plaintext_auth = no
+auth_mechanisms = plain login
+
+# Auth using passwd-file for flexibility (or system users)
+# For simplicity in this script, we'll map all logins to the vmail user
+# but require the user to exist in a password file or just accept system users?
+# Let's use a static passwd file for the 'admin' user we create.
+passdb {
+  driver = passwd-file
+  args = scheme=SHA512-CRYPT username_format=%u /etc/dovecot/users
+}
+
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n
+}
+
+# Fix Permissions for PMTA delivery
+mkdir -p /var/mail/vhosts
+chown -R vmail:vmail /var/mail/vhosts
+# Add pmta to vmail group so it can write via run-pipe if needed
+usermod -aG vmail pmta || true
+chmod -R g+w /var/mail/vhosts
+
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
+}
+ssl = no
+EOF
+
+# Include local config
+grep -q "include local.conf" /etc/dovecot/dovecot.conf || echo "!include local.conf" >> /etc/dovecot/dovecot.conf
+
+# Create a default user (admin@$DOMAIN)
+# Password: password (needs generation)
+mkdir -p /etc/dovecot
+# SHA512-CRYPT for "password"
+echo "admin@$DOMAIN:{SHA512-CRYPT}\$6\$rounds=5000\$usesomesalt\$CyOc.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6.1k6" > /etc/dovecot/users
+# Note: The above hash is fake/broken. We need a real way to generate or just use PLAIN scheme for internal/testing if SSL is off.
+# Let's use PLAIN scheme for simplicity if `disable_plaintext_auth=no`
+cat > /etc/dovecot/users <<EOF
+admin@$DOMAIN:{PLAIN}password
+EOF
+
+# 3. Start Database
+echo "Starting Database..."
+systemctl enable mariadb
+systemctl start mariadb
+
+# Create DB for Roundcube
+mysql -e "CREATE DATABASE IF NOT EXISTS roundcubemail DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;"
+mysql -e "GRANT ALL PRIVILEGES ON roundcubemail.* TO 'roundcube'@'localhost' IDENTIFIED BY 'password';"
+mysql -e "FLUSH PRIVILEGES;"
+
+# 4. Install Roundcube
+echo "Installing Roundcube..."
+RC_DIR="/var/www/html/webmail"
+if [ ! -d "$RC_DIR" ]; then
+    wget -q https://github.com/roundcube/roundcubemail/releases/download/1.6.6/roundcubemail-1.6.6-complete.tar.gz -O /tmp/roundcube.tar.gz
+    tar -xf /tmp/roundcube.tar.gz -C /var/www/html/
+    mv /var/www/html/roundcubemail-1.6.6 "$RC_DIR"
+    chown -R apache:apache "$RC_DIR"
+    
+    # Init DB
+    mysql roundcubemail < "$RC_DIR/SQL/mysql.initial.sql"
+    
+    # Configure
+    cat > "$RC_DIR/config/config.inc.php" <<EOF
+<?php
+\$config['db_dsnw'] = 'mysql://roundcube:password@localhost/roundcubemail';
+\$config['default_host'] = 'localhost';
+\$config['smtp_server'] = 'localhost';
+\$config['smtp_port'] = 25;
+\$config['smtp_user'] = '';
+\$config['smtp_pass'] = '';
+\$config['support_url'] = '';
+\$config['product_name'] = 'PowerMTA Webmail';
+\$config['des_key'] = 'rcmail-`date +%s`';
+\$config['plugins'] = array('archive', 'zipdownload');
+?>
+EOF
+fi
+
+# 5. Start Web Server
+echo "Starting Web Server..."
+systemctl enable httpd
+systemctl start httpd
+systemctl enable dovecot
+systemctl restart dovecot
+
+# 6. Firewall Update for New Services
+if command -v firewall-cmd >/dev/null 2>&1; then
+    firewall-cmd --permanent --add-service=http
+    firewall-cmd --permanent --add-service=https
+    firewall-cmd --permanent --add-port=143/tcp
+    firewall-cmd --permanent --add-port=993/tcp
+    firewall-cmd --permanent --add-port=110/tcp
+    firewall-cmd --permanent --add-port=995/tcp
+    firewall-cmd --reload
+fi
+
+echo "PMTA installation and license setup completed successfully"
+
+exit 0
+

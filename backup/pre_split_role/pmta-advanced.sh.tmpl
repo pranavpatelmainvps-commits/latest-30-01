@@ -1,0 +1,336 @@
+#!/bin/bash
+# Advanced PMTA Configuration Template
+# Merges Validated Settings from 'c.txt' into Default Config
+
+# 1. Start with a fresh default config
+if [ -f /etc/pmta/config-defaults ]; then
+    cp /etc/pmta/config-defaults /etc/pmta/config
+else
+    # Fallback if defaults missing (unlikely)
+    touch /etc/pmta/config
+fi
+
+# 1.5. Enterprise Cleanup: Remove conflicting blocks from defaults
+# This ensures we are the authoritative source for these sections
+sed -i '/<domain \*>/,/<\/domain>/d' /etc/pmta/config
+sed -i '/<bounce-category-patterns>/,/<\/bounce-category-patterns>/d' /etc/pmta/config
+sed -i '/<smtp-pattern-list/,/<\/smtp-pattern-list>/d' /etc/pmta/config
+
+# Helper function to prevent double entries
+ensure_line () {
+  grep -q "^$1" /etc/pmta/config || echo "$1" >> /etc/pmta/config
+}
+
+# 2. Ensure Core Settings (Idempotent)
+ensure_line "smtp-listener 0/0:25"
+ensure_line "http-mgmt-port 8080"
+ensure_line "http-access 0/0 monitor"
+ensure_line "run-as-root yes"
+ensure_line "log-file /var/log/pmta/pmta.log"
+
+# 3. Append Advanced Configuration from c.txt
+# (Excluding hardcoded VMTAs/Domains to allow dynamic generation)
+cat >> /etc/pmta/config <<'EOF'
+
+# --- Advanced Configuration (from c.txt) ---
+
+total-max-smtp-in 3000
+http-redirect-to-https false
+edns-udp-length 1024
+
+# Global Source Settings
+<source 0/0>
+    always-allow-relaying yes
+    process-x-virtual-mta yes
+    max-message-size unlimited
+    smtp-service yes
+    log-connections yes
+    log-commands no
+    log-data no
+    allow-unencrypted-plain-auth yes
+    require-auth yes
+    add-message-id-header yes
+    add-received-header yes
+    accept-invalid-recipients no
+    verp-default yes
+    add-date-header yes
+</source>
+
+# Macros
+domain-macro gmail gmail.com
+domain-macro yahoo aol.com, yahoo.com, aol.nl, yahoo.nl, aol.com, yahoo.co.uk, yahoo.fr, yahoo.es, aol.be, yahoo.be, yahoo.co.in
+
+# Specific Domain Rules
+<domain $gmail>
+    max-msg-per-connection 1
+    smtp-421-means-mx-unavailable yes
+    max-msg-rate 100/10m
+    retry-after 30m
+    bounce-after 10d
+    dkim-sign yes
+</domain>
+
+<domain $yahoo>
+    max-msg-per-connection 4
+    retry-after 1h
+    smtp-421-means-mx-unavailable yes
+    max-msg-rate 1/20m
+    bounce-after 10d
+</domain>
+
+# ==========================================================
+# DYNAMICALLY GENERATED VMTAS AND DOMAINS
+# ==========================================================
+
+{{VMTA_BLOCK}}
+
+{{DOMAIN_BLOCK}}
+
+# ==========================================================
+# GLOBAL PATTERNS (from c.txt)
+# ==========================================================
+
+<smtp-pattern-list topl>
+reply /421 Message Rejected/ mode=backoff
+reply /Client host rejected/ mode=backoff
+reply /blocked using UCEProtect/ mode=backoff
+reply /Mail Refused/ mode=backoff
+reply /421 Exceeded allowable connection time/ mode=backoff
+reply /amIBlockedByRR/ mode=backoff
+reply /block-lookup/ mode=backoff
+reply /Too many concurrent connections from source IP/ mode=backoff
+reply /unusual rate of unsolicited mail/ mode=backoff
+reply /too many/ mode=backoff
+reply /Exceeded allowable connection time/ mode=backoff
+reply /Connection rate limit exceeded/ mode=backoff
+reply /refused your connection/ mode=backoff
+reply /550 RBL/ mode=backoff
+reply /TDC internal RBL/ mode=backoff
+reply /connection refused/ mode=backoff
+reply /please see www.spamhaus.org/ mode=backoff
+reply /Message Rejected/ mode=backoff
+reply /refused by antispam/ mode=backoff
+reply /Service not available/ mode=backoff
+reply /currently blocked/ mode=backoff
+reply /locally blacklisted/ mode=backoff
+reply /not currently accepting mail from your ip/ mode=backoff
+reply /421.*closing connection/ mode=backoff
+reply /421.*Lost connection/ mode=backoff
+reply /476 connections from your host are denied/ mode=backoff
+reply /421 Connection cannot be established/ mode=backoff
+reply /421 temporary envelope failure/ mode=backoff
+reply /421 4.4.2 Timeout while waiting for command/ mode=backoff
+reply /450 Requested action aborted/ mode=backoff
+reply /550 Access denied/ mode=backoff
+reply /try again later/ mode=normal
+reply /exceeded the rate limit/ mode=backoff
+reply /421rlynw/ mode=backoff
+reply /permanently deferred/ mode=backoff
+reply /d+.d+.d+.d+ blocked/ mode=backoff
+reply /www.spamcop.net\/bl.shtml/ mode=backoff
+reply /generating high volumes of.* complaints from AOL/ mode=backoff
+reply /Excessive unknown recipients - possible Open Relay/ mode=backoff
+reply /^421 .* too many errors/ mode=backoff
+reply /blocked.*spamhaus/ mode=backoff
+reply /451 Rejected/ mode=backoff
+</smtp-pattern-list>
+
+<smtp-pattern-list general>
+reply /unusual rate of unsolicited mail/ mode=backoff
+reply /too many/ mode=backoff
+reply /Exceeded allowable connection time/ mode=backoff
+reply /Connection rate limit exceeded/ mode=backoff
+reply /refused your connection/ mode=backoff
+reply /550 RBL/ mode=backoff
+reply /TDC internal RBL/ mode=backoff
+reply /connection refused/ mode=backoff
+reply /please see www.spamhaus.org/ mode=backoff
+reply /Message Rejected/ mode=backoff
+reply /refused by antispam/ mode=backoff
+reply /Service not available/ mode=backoff
+reply /currently blocked/ mode=backoff
+reply /locally blacklisted/ mode=backoff
+reply /not currently accepting mail from your ip/ mode=backoff
+reply /421.*closing connection/ mode=backoff
+reply /421.*Lost connection/ mode=backoff
+reply /476 connections from your host are denied/ mode=backoff
+reply /421 Connection cannot be established/ mode=backoff
+reply /421 temporary envelope failure/ mode=backoff
+reply /421 4.4.2 Timeout while waiting for command/ mode=backoff
+reply /450 Requested action aborted/ mode=backoff
+reply /550 Access denied/ mode=backoff
+reply /try again later/ mode=normal
+reply /exceeded the rate limit/ mode=backoff
+reply /Excessive unknown recipients - possible Open Relay/ mode=backoff
+reply /^421 .* too many errors/ mode=backoff
+reply /blocked.*spamhaus/ mode=backoff
+reply /generating high volumes of.* complaints from AOL/ mode=backoff
+reply /451 Rejected/ mode=backoff
+reply /Too many concurrent SMTP connections from this IP address/ mode=backoff
+reply /Your IP address has been temporarily blocked/ mode=backoff
+reply /Too much spam/ mode=backoff
+reply /blocked using Trend Micro/ mode=backoff
+reply /Your access to this mail system has been rejected due to the sending MTA/ mode=backoff
+reply /blocked using Barracuda Reputation/ mode=backoff
+reply /unusual rate of unsolicited mail originating from your IP address/ mode=backoff
+reply /4.7.1 Error: too much mail from/ mode=backoff
+reply /temporarily deferred due to user complaints/ mode=backoff
+reply /Your domain has sent too many mails/ mode=backoff
+reply /451 DT:SPM/ mode=backoff
+reply /552 spam score exceeded threshold/ mode=backoff
+reply /Maximum of 10 recipient errors detected/ mode=backoff
+reply /too many connections/ mode=backoff
+reply /Too many concurrent connections from this client/ mode=backoff
+reply /451 Not currently accepting mail from your ip/ mode=backoff
+reply /spam content/ mode=backoff
+reply /email is considered spam/ mode=backoff
+reply /Spam-score too high/ mode=backoff
+reply /is blocked by EarthLink/ mode=backoff
+reply /messages exceeds maximum per connection/ mode=backoff
+reply /message rejected as Spam/ mode=backoff
+reply /RBL Restriction/ mode=backoff
+reply /Your IP is listed as Spammer/ mode=backoff
+reply /invalid RDNS record of your mail server/ mode=backoff
+reply /Missing reverse DNS for/ mode=backoff
+reply /Non-Existent Reverse DNS/ mode=backoff
+reply /connections from your host are denied/ mode=backoff
+reply /You are not allowed to send mail/ mode=backoff
+reply /Blacklisted - Please see/ mode=backoff
+reply /Mails-per-session limit reached/ mode=backoff
+reply /Transaction limit reached/ mode=backoff
+reply /Connection limit exceeded/ mode=backoff
+reply /Too many invalid recipients/ mode=backoff
+reply /554 Blocked/ mode=backoff
+reply /IP address is black listed/ mode=backoff
+reply /550 Access denied/ mode=backoff
+reply /blocked by .* anti-spam system/ mode=backoff
+reply /cox .* blocked/ mode=backoff
+reply /Blocked for abuse/ mode=backoff
+reply /found on one or more DNSBLs/ mode=backoff
+reply /RTR:BL/ mode=backoff
+reply /421rlynw/ mode=backoff
+reply /permanently deferred/ mode=backoff
+reply /d+.d+.d+.d+ blocked/ mode=backoff
+reply /www.spamcop.net\/bl.shtml/ mode=backoff
+reply /Excessive unknown recipients - possible Open Relay/ mode=backoff
+reply /^421 .* too many errors/ mode=backoff
+reply /blocked.*spamhaus/ mode=backoff
+reply /451 Rejected/ mode=backoff
+</smtp-pattern-list>
+
+<bounce-category-patterns>
+/(system uses BMS to check|csi.cloudmark.com)/ spam-related
+/(\[TS01\]|\[TS02\]|\[TS03\]|\[MW01\]|\[GL01\]|RTR\:BB|RTR\:CH|RTR\:BG|RTR\:RD|RTR\:SC|RTR\:DU|RTR\:GE|RTR\:BL|HVU\:B1|HVU\:B2|DNS\:B1|DNS\:B2|DNS\:NR|RLY\:B1|RLY\:B2|RLY\:B3|RLY\:BL|RLY\:BD|RLY\:CH|RLY\:CH|RLY\:CH2|RLY\:CS4|RLY\:IR|RLY\:NW|RLY\:OB|RLY\:SN|DYN\:T1|DYN\:T2|CON\:B1|CON\:B2|RP-001|RP-002|RP-003|SC-001|SC-002|SC-003|SC-004|DY-001|DY-002|OU-001|OU-002)/ spam-related
+/mail.live|RP-00[1-3]|SC-00[1-4]|DY-00[1-2]|OU-00[1-2]/ spam-related
+/(account is unavailable|not a valid user)/ bad-mailbox
+/no mailbox here by that name/ bad-mailbox
+/(not our customer|address rejected)/ bad-mailbox
+/server.*?busy|(S|s)ervice currently unavailable/ server-busy
+/try (again|later)/ server-busy
+/(S|s)ervice not available/ server-busy
+/(T|t)emporary/ server-busy
+/temporarily deferred/ server-busy
+/(R|r)esources temporarily unavailable/ server-busy
+/locked for abuse/ spam-related
+/(spam|rejected as spam)/ spam-related
+/(blacklist|blocked|junk mail|anti-spam system|poor reputation|block list|black list)/ spam-related
+/U.?C.?E./ spam-related
+/Adv(ertisements?)/ spam-related
+/unsolicited/ spam-related
+/550 ZLA/ spam-related
+/(open)?RB/ spam-related
+/realtime blackhole/ spam-related
+/AOL will not accept delivery of this message/ spam-related
+/(A|a)ccess denied/ spam-related
+/Message Rejected - Error Code/ spam-related
+/rejected due to security policies/ spam-related
+/policy/ spam-related
+/postmaster.info.aol.com\/errors/ spam-related
+/http:\/\/basic.wirehub.nl\/blackholes.html/ spam-related
+/viru/ virus-related
+/message +content/ content-related
+/content +rejected/ content-related
+/Too many (bad|invalid|unknown|illegal|unavailable) (user|mailbox|recipient|rcpt|local part|address|account|mail drop|ad(d?)ressee)|virtual MTA does not exist|no compatible source IP configured/ other
+/quota/ quota-issues
+/limit exceeded/ quota-issues
+/mailbox.*?full/ quota-issues
+/storage/ quota-issues
+/(user|mailbox|recipient|rcpt|local part|address|account|mail drop|ad(d?)ressee) (has|has been|is)? *(currently|temporarily +)?(disabled|expired|inactive|not activated)/ inactive-mailbox
+/(conta|usu.rio) inativ(a|o)/ inactive-mailbox
+/new mail is not currently being accepted for this mailbox/ inactive-mailbox
+/(No such|bad|invalid|unknown|illegal|unavailable) (local +)?(user|mailbox|recipient|rcpt|local part|address|account|mail drop|ad(d?)resse)/ bad-mailbox
+/(user|mailbox|recipient|rcpt|local part|address|account|mail drop|ad(d?)ressee) +(S+@S+ +)?(not (a +)?valid|not known|not here|not found|does not exist|bad|invalid|unknown|illegal|unavailable)/ bad-mailbox
+/S+@S+ +(is +)?(not (a +)?valid|not known|not here|not found|does not exist|bad|invalid|unknown|illegal|unavailable)/ bad-mailbox
+/email address is unknown|(U|u)ser is suspended|(N|n)o such person at this address/ bad-mailbox
+/is disabled/ bad-mailbox
+/user doesn't have/ bad-mailbox
+/my badrcptto list/ bad-mailbox
+/no longer (valid|available)/ bad-mailbox
+/have a S+ account/ bad-mailbox
+/relay(ing)?/ relaying-issues
+/domain (retired|bad|invalid|unknown|illegal|unavailable)/ bad-domain
+/domain no longer in use/ bad-domain
+/domain (S+ +)?(is +)?obsolete/ bad-domain
+/denied/ policy-related
+/prohibit/ policy-related
+/reject/ policy-related
+/refused/ policy-related
+/not accepting/ policy-related
+/not allowed/ policy-related
+/banned/ policy-related
+/suspicious activity/ policy-related
+/bad sequence/ protocol-errors
+/syntax error/ protocol-errors
+/rout/ routing-errors
+/unroutabl/ routing-errors
+/unrouteabl/ routing-errors
+/^[45].1.[0-9]/ bad-mailbox
+/^[45].2.0/ other
+/^[45].2.[1-9]/ quota-issues
+/^[45].3.[1-9]/ bad-configuration
+/^[45].4.1/ no-answer-from-host
+/^[45].4.2/ bad-connection
+/^[45].4.4/ routing-errors
+/^[45].4.6/ routing-errors
+/^[45].4.7/ message-expired
+/^2.d.d/ success
+// other
+</bounce-category-patterns>
+
+# Default Domain Config (from c.txt)
+<domain *>
+    max-msg-per-connection 0
+    max-rcpt-per-transaction 1000
+    smtp-greeting-timeout 5m
+    connect-timeout 1m
+    assume-delivery-upon-data-termination-timeout yes
+    smtp-data-termination-timeout 10m
+    max-smtp-out 300
+    bounce-after 5d
+    retry-after 10m
+    bounce-upon-no-mx yes
+    backoff-max-msg-rate 0
+    max-msg-rate 1/m
+</domain>
+
+<acct-file /var/log/pmta/delivered.csv>
+    move-interval 5m
+    max-size 50M
+    records d
+</acct-file>
+
+<acct-file /var/log/pmta/bounce.csv>
+    move-interval 5m
+    max-size 50M
+    records b
+</acct-file>
+
+<spool /var/spool/pmta>
+    deliver-only no
+    delete-file-holders yes
+</spool>
+
+EOF
+
+
+

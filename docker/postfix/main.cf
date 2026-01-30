@@ -1,0 +1,27 @@
+# Network
+inet_interfaces = all
+inet_protocols = ipv4
+
+# Identity
+myhostname = mx.localhost
+mydestination = localhost
+
+# Virtual Domains (Inbound)
+# We store domains in a static file for now, or hash map
+virtual_mailbox_domains = /etc/postfix/vdomains
+virtual_mailbox_base = /var/mail/vhosts
+virtual_minimum_uid = 100
+virtual_uid_maps = static:5000
+virtual_gid_maps = static:5000
+
+# Delivery format: Maildir
+# Note: Postfix native virtual delivery uses Maildir/ format (ending in /)
+# We map catchall to user directory.
+virtual_alias_maps = regexp:/etc/postfix/valias
+
+# Security
+smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
+smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
+
+# Logs
+maillog_file = /dev/stdout
