@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  pmta:
+    build:
+      context: .
+      dockerfile: docker/pmta/Dockerfile
+    ports:
+      - "2222:22"
+      - "2525:25"
+      - "8080:8080"
+    volumes:
+      - maildata:/var/spool/pmta
+    tty: true
+    restart: unless-stopped
+
   pmta-dashboard:
     build: .
     ports:

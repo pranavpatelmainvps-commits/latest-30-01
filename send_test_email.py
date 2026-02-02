@@ -4,13 +4,13 @@ from email.mime.multipart import MIMEMultipart
 
 # ================= CONFIGURATION =================
 # Replace with your server IP
-SMTP_SERVER = "192.119.169.5" # Updated from last log
-SMTP_PORT = 25
+SMTP_SERVER = "192.119.169.10" # Updated from last log
+SMTP_PORT = 2525
 SMTP_USER = "admin"      # Default from backend.py
 SMTP_PASS = "password"   # Default from backend.py
 
-SENDER_EMAIL = "test@quicklendings.com"
-RECIPIENT_EMAIL = "test-hu1s9nfsa@srv1.mail-tester.com" # Updated from user input
+SENDER_EMAIL = "test@tommorrow-loan.com"
+RECIPIENT_EMAIL = "test-3f4wubfgb@srv1.mail-tester.com" # Updated from user input
 # =================================================
 
 msg = MIMEMultipart()
