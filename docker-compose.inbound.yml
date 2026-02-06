@@ -54,7 +54,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: python inbound_processor.py
+    command: python backend.py
+    ports:
+      - "5000:5000"
     volumes:
       - maildata:/var/mail/vhosts
       - .:/app
